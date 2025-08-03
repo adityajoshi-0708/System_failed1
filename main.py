@@ -188,7 +188,7 @@ async def get_system_stats():
         print(f"❌ Error getting stats: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
-@app.post("/process", response_model=ProcessResponse)
+@app.post("/hackrx/run", response_model=ProcessResponse)
 async def process_pdf_and_questions(request: ProcessRequest):
     """Process PDF and answer questions - YOUR CORE LOGIC (UNCHANGED)"""
     if not pipeline_instance:
