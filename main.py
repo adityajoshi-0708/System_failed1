@@ -12,6 +12,7 @@ from typing import Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, validator
 from dotenv import load_dotenv
 import uvicorn
@@ -129,6 +130,36 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Custom OpenAPI schema to create proper URL structure
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title="HackRX RAG Pipeline API",
+        version="1.0.0",
+        description="High-performance RAG pipeline optimized for HackRX competition",
+        routes=app.routes,
+    )
+    
+    # Define custom tags for better organization
+    openapi_schema["tags"] = [
+        {
+            "name": "hackrx",
+            "description": "HackRX pipeline operations"
+        },
+        {
+            "name": "system",
+            "description": "System health and monitoring"
+        }
+    ]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+# Apply custom OpenAPI
+app.openapi = custom_openapi
+
 # Add CORS middleware for frontend integration
 app.add_middleware(
     CORSMiddleware,
@@ -152,7 +183,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-@app.get("/", response_model=HealthResponse)
+@app.get("/", response_model=HealthResponse, tags=["system"])
 async def health_check():
     """Health check endpoint"""
     return HealthResponse(
@@ -161,7 +192,7 @@ async def health_check():
         pipeline_ready=pipeline_instance is not None
     )
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health", response_model=HealthResponse, tags=["system"])
 async def detailed_health_check():
     """Detailed health check with pipeline status"""
     pipeline_ready = pipeline_instance is not None
@@ -172,7 +203,7 @@ async def detailed_health_check():
         pipeline_ready=pipeline_ready
     )
 
-@app.get("/stats", response_model=StatsResponse)
+@app.get("/stats", response_model=StatsResponse, tags=["system"])
 async def get_system_stats():
     """Get system statistics"""
     if not pipeline_instance:
@@ -188,7 +219,7 @@ async def get_system_stats():
         print(f"❌ Error getting stats: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
-@app.post("/hackrx/run", response_model=ProcessResponse)
+@app.post("/hackrx/run", response_model=ProcessResponse, tags=["hackrx"], operation_id="run")
 async def process_pdf_and_questions(request: ProcessRequest):
     """Process PDF and answer questions - YOUR CORE LOGIC (UNCHANGED)"""
     if not pipeline_instance:
@@ -231,7 +262,7 @@ async def process_pdf_and_questions(request: ProcessRequest):
         raise HTTPException(status_code=500, detail=f"Processing failed: {error_detail}")
 
 # Optional: Add a simple test endpoint
-@app.get("/test")
+@app.get("/test", tags=["system"])
 async def test_endpoint():
     """Simple test endpoint to verify API is working"""
     return {
