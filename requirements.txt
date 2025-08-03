@@ -1,0 +1,27 @@
+# Core FastAPI and Web Server
+fastapi==0.115.4
+uvicorn==0.32.0
+pydantic==2.9.2
+
+# Environment Management
+python-dotenv>=1.0.0
+
+# HTTP Client for PDF downloads
+aiohttp>=3.8.0
+
+# AI and ML Libraries
+openai>=1.0.0
+sentence-transformers>=2.2.0
+
+# Vector Database
+pinecone>=5.0.0
+
+# Text Processing
+langchain>=0.0.300
+pdfplumber>=0.10.0
+
+# Numerical Computing
+numpy>=1.23.0
+
+# System Monitoring (for optimization)
+psutil>=5.9.0
