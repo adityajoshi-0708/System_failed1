@@ -9,19 +9,43 @@ python-dotenv>=1.0.0
 # HTTP Client for PDF downloads
 aiohttp>=3.8.0
 
-# AI and ML Libraries
+# AI and ML Libraries - Core
 openai>=1.0.0
 sentence-transformers>=2.2.0
+transformers>=4.21.0
+torch>=1.12.0
+torchvision>=0.13.0
+torchaudio>=0.12.0
 
 # Vector Database
 pinecone>=5.0.0
 
-# Text Processing
+# Text Processing and NLP
 langchain>=0.0.300
 pdfplumber>=0.10.0
+tiktoken>=0.4.0
 
-# Numerical Computing
+# Machine Learning and Data Science
 numpy>=1.23.0
+scikit-learn>=1.1.0
+pandas>=1.4.0
 
 # System Monitoring (for optimization)
 psutil>=5.9.0
+
+# Additional ML dependencies for sentence-transformers
+scipy>=1.9.0
+huggingface-hub>=0.10.0
+tokenizers>=0.13.0
+
+# For cross-encoder reranking
+datasets>=2.0.0
+
+# For async operations
+asyncio-throttle>=1.0.0
+
+# For better JSON handling
+orjson>=3.8.0
+
+# For improved caching
+diskcache>=5.4.0
