@@ -34,7 +34,7 @@ class UltraFastRAGPipeline:
             chunk_overlap: int = 30,             # Reduced
             top_k_retrieval: int = 1,            # CRITICAL: Only 1 chunk for speed
             max_tokens_response: int = 80,        # Reduced for 2-line answers
-            embedding_cache_size: int = 10000,   # LRU cache size
+            embedding_cache_size : int = 10000,   # LRU cache size
             answer_cache_size: int = 5000        # Answer cache size
     ):
         print("🚀 Initializing ULTRA-FAST RAG Pipeline (Target: 1.5s per question)")

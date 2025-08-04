@@ -252,130 +252,37 @@ async def health_check():
             }
         )
 
-@app.get("/hackrx/run", response_class=HTMLResponse)
-async def hackrx_run_form():
-    """HackRX endpoint - GET request shows input form for testing"""
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>HackRX Ultra-Fast API - Test Interface</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
-            .header { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-            .form-group { margin: 20px 0; }
-            label { display: block; font-weight: bold; margin-bottom: 5px; color: #2c3e50; }
-            input, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
-            textarea { height: 200px; resize: vertical; }
-            button { background: #3498db; color: white; padding: 12px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
-            button:hover { background: #2980b9; }
-            .response { margin-top: 20px; padding: 20px; background: #ecf0f1; border-radius: 5px; white-space: pre-wrap; }
-            .loading { display: none; color: #3498db; font-weight: bold; }
-            .error { color: #e74c3c; background: #fadbd8; padding: 10px; border-radius: 5px; margin: 10px 0; }
-            .success { color: #27ae60; background: #d5f4e6; padding: 10px; border-radius: 5px; margin: 10px 0; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1 class="header">🏆 HackRX Ultra-Fast API - Test Interface</h1>
-            <p>Test the HackRX API endpoint with ultra-fast processing (1.5s per question target).</p>
-            
-            <form id="hackrxForm">
-                <div class="form-group">
-                    <label for="documents">PDF Document URL:</label>
-                    <input type="url" id="documents" name="documents" required 
-                           placeholder="https://example.com/document.pdf"
-                           value="https://hackrx.blob.core.windows.net/assets/policy.pdf?sv=2023-01-03&st=2025-07-04T09%3A11%3A24Z&se=2027-07-05T09%3A11%3A00Z&sr=b&sp=r&sig=N4a9OU0w0QXO6AOIBiu4bpl7AXvEZogeT%2FjUHNO7HzQ%3D">
-                </div>
-                
-                <div class="form-group">
-                    <label for="bearer_token">Bearer Token:</label>
-                    <input type="text" id="bearer_token" name="bearer_token" required 
-                           placeholder="Enter your bearer token">
-                </div>
-                
-                <div class="form-group">
-                    <label for="questions">Questions (one per line):</label>
-                    <textarea id="questions" name="questions" required placeholder="Enter your questions, one per line">What is the grace period for premium payment under the National Parivar Mediclaim Plus Policy?
-What is the waiting period for pre-existing diseases (PED) to be covered?
-Does this policy cover maternity expenses, and what are the conditions?</textarea>
-                </div>
-                
-                <button type="submit">🚀 Process Questions Ultra-Fast</button>
-                <div class="loading" id="loading">⏳ Processing... Please wait...</div>
-            </form>
-            
-            <div id="response"></div>
-        </div>
-        
-        <script>
-            document.getElementById('hackrxForm').addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const loading = document.getElementById('loading');
-                const responseDiv = document.getElementById('response');
-                const submitBtn = e.target.querySelector('button');
-                
-                loading.style.display = 'block';
-                submitBtn.disabled = true;
-                responseDiv.innerHTML = '';
-                
-                try {
-                    const startTime = performance.now();
-                    const documents = document.getElementById('documents').value;
-                    const bearer_token = document.getElementById('bearer_token').value;
-                    const questionsText = document.getElementById('questions').value;
-                    const questions = questionsText.split('\n').filter(q => q.trim() !== '');
-                    
-                    const response = await fetch('/hackrx/run', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${bearer_token}`
-                        },
-                        body: JSON.stringify({
-                            documents: documents,
-                            questions: questions
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    const endTime = performance.now();
-                    const totalTime = (endTime - startTime) / 1000;
-                    const avgTime = totalTime / questions.length;
-                    
-                    if (response.ok) {
-                        responseDiv.innerHTML = `
-                            <div class="success">✅ Success! Processed ${result.answers.length} questions</div>
-                            <div class="response">
-                                <h3>📋 Results (Total: ${totalTime.toFixed(2)}s, Avg: ${avgTime.toFixed(2)}s)</h3>
-                                ${result.answers.map((answer, index) => 
-                                    `<div><strong>Q${index + 1}:</strong> ${questions[index]}</div>
-                                     <div><strong>A${index + 1}:</strong> ${answer}</div><br>`
-                                ).join('')}
-                                <div><strong>Performance:</strong> ${avgTime <= 1.5 ? '✅ Target achieved!' : '❌ Target missed'}</div>
-                            </div>
-                        `;
-                    } else {
-                        responseDiv.innerHTML = `
-                            <div class="error">❌ Error: ${result.detail || 'Unknown error'}</div>
-                        `;
-                    }
-                } catch (error) {
-                    responseDiv.innerHTML = `
-                        <div class="error">❌ Network Error: ${error.message}</div>
-                    `;
-                }
-                
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
-            });
-        </script>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+@app.get("/hackrx/run")
+async def hackrx_run_info():
+    """HackRX endpoint - GET request shows API status and usage info"""
+    return JSONResponse({
+        "status": "✅ HackRX API is WORKING!",
+        "message": "API endpoint is operational and ready for hackathon submissions",
+        "endpoint": "/hackrx/run",
+        "method": "POST (for processing)",
+        "current_method": "GET (for status check)",
+        "team_info": {
+            "success": "🎉 Your API endpoint is correctly configured!",
+            "next_step": "Use POST method with JSON payload to process documents",
+            "performance_target": "1.5 seconds per question",
+            "authentication": "Bearer token required"
+        },
+        "usage": {
+            "url": "/hackrx/run",
+            "method": "POST",
+            "content_type": "application/json",
+            "headers": {
+                "Authorization": "Bearer <your_token>",
+                "Content-Type": "application/json"
+            },
+            "body_example": {
+                "documents": "https://example.com/document.pdf",
+                "questions": ["Question 1?", "Question 2?"]
+            }
+        },
+        "test_interface": "Visit / (root) for interactive test form",
+        "documentation": "Visit /docs for full API documentation"
+    })
 
 @app.post("/hackrx/run", response_model=HackRXResponse)
 async def hackrx_run_api(
