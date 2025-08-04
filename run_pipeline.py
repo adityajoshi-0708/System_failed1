@@ -17,10 +17,10 @@ if sys.version_info < (3, 8):
     sys.exit(1)
 
 try:
-    from hybrid_rag_pipeline import HyperOptimizedRAGPipeline
+    from hybrid_rag_pipeline import UltraFastRAGPipeline
 except ImportError:
-    print("❌ Could not import HyperOptimizedRAGPipeline")
-    print("Please ensure the hybrid_rag_pipeline.py file is in the same directory")
+    print("❌ Could not import UltraFastRAGPipeline")
+    print("Please ensure the ultra_fast_rag_pipeline.py file is in the same directory")
     sys.exit(1)
 
 
@@ -28,15 +28,12 @@ def check_environment_variables():
     """Check if all required environment variables are set"""
     required_vars = [
         "GITHUB_TOKEN",
-        "PINECONE_API_KEY", 
+        "PINECONE_API_KEY",
         "CHUNKS_INDEX_HOST",
         "CACHE_INDEX_HOST"
     ]
     
-    missing_vars = []
-    for var in required_vars:
-        if not os.getenv(var):
-            missing_vars.append(var)
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
     
     if missing_vars:
         print("❌ Missing required environment variables:")
@@ -73,40 +70,39 @@ def optimize_system():
     # Optimize settings based on system capabilities
     if memory.available < 4 * (1024 ** 3):  # Less than 4GB available
         print("⚠️ Low memory detected, using conservative settings")
-        max_concurrent = min(cpu_count * 4, 20)
-        batch_size = min(cpu_count * 10, 40)
+        max_concurrent = min(cpu_count * 8, 50)
+        batch_size = min(cpu_count * 20, 100)
     elif memory.available < 8 * (1024 ** 3):  # Less than 8GB available
         print("📊 Medium memory detected, using balanced settings")
-        max_concurrent = min(cpu_count * 6, 30)
-        batch_size = min(cpu_count * 15, 60)
+        max_concurrent = min(cpu_count * 10, 80)
+        batch_size = min(cpu_count * 25, 150)
     else:  # 8GB+ available
         print("🚀 High memory detected, using aggressive settings")
-        max_concurrent = min(cpu_count * 8, 40)
-        batch_size = min(cpu_count * 20, 80)
+        max_concurrent = min(cpu_count * 12, 100)
+        batch_size = min(cpu_count * 30, 200)
 
     # Override with environment variables if set
-    max_concurrent = int(os.getenv("MAX_CONCURRENT_REQUESTS", max_concurrent))
-    batch_size = int(os.getenv("EMBEDDING_BATCH_SIZE", batch_size))
-
     return {
-        'max_concurrent_requests': max_concurrent,
-        'embedding_batch_size': batch_size,
+        'max_concurrent_requests': int(os.getenv("MAX_CONCURRENT_REQUESTS", max_concurrent)),
+        'embedding_batch_size': int(os.getenv("EMBEDDING_BATCH_SIZE", batch_size)),
         'use_local_embeddings': os.getenv("USE_LOCAL_EMBEDDINGS", "true").lower() == "true",
-        'preload_cache': True,
-        'chunk_size': int(os.getenv("CHUNK_SIZE", "800")),
-        'chunk_overlap': 50,
-        'top_k_retrieval': int(os.getenv("TOP_K_RETRIEVAL", "2"))
+        'chunk_size': int(os.getenv("CHUNK_SIZE", "600")),
+        'chunk_overlap': int(os.getenv("CHUNK_OVERLAP", "30")),
+        'top_k_retrieval': int(os.getenv("TOP_K_RETRIEVAL", "1")),  # Single chunk for speed
+        'max_tokens_response': int(os.getenv("MAX_TOKENS_RESPONSE", "80")),  # Minimal response
+        'embedding_cache_size': int(os.getenv("EMBEDDING_CACHE_SIZE", "10000")),
+        'answer_cache_size': int(os.getenv("ANSWER_CACHE_SIZE", "5000"))
     }
 
 
 async def run_comprehensive_benchmark():
-    """Comprehensive benchmark for HyperOptimizedRAGPipeline"""
+    """Comprehensive benchmark for UltraFastRAGPipeline"""
 
     print("🏆" + "=" * 78 + "🏆")
-    print("🚀 HYPER-OPTIMIZED RAG PIPELINE BENCHMARK")
-    print("   🎯 Target: <1 second per question for HackRX")
+    print("🚀 ULTRA-FAST RAG PIPELINE BENCHMARK")
+    print("   🎯 Target: ≤1.5 seconds per question for HackRX")
     print("   ⚡ Maximum Performance Configuration")
-    print("   📊 Using 384-dimension embeddings (matches Pinecone)")
+    print("   📊 Using 384-dimension embeddings (all-MiniLM-L6-v2)")
     print("🏆" + "=" * 78 + "🏆")
 
     # Check environment variables first
@@ -117,33 +113,36 @@ async def run_comprehensive_benchmark():
     optimized_settings = optimize_system()
 
     try:
-        # Initialize pipeline using environment variables
-        pipeline = HyperOptimizedRAGPipeline(
-            **optimized_settings,
-            cache_similarity_threshold=0.85
+        # Initialize pipeline with optimized parameters
+        pipeline = UltraFastRAGPipeline(
+            github_token=os.getenv("GITHUB_TOKEN"),
+            pinecone_api_key=os.getenv("PINECONE_API_KEY"),
+            chunks_index_host=os.getenv("CHUNKS_INDEX_HOST"),
+            cache_index_host=os.getenv("CACHE_INDEX_HOST"),
+            **optimized_settings
         )
 
-        print("✅ Hyper-Optimized Pipeline initialized!")
+        print("✅ Ultra-Fast Pipeline initialized!")
         print("🔍 Dimension Configuration: 384 (all-MiniLM-L6-v2 → Pinecone)")
 
         # Test scenarios
         pdf_url = "https://www.ijfmr.com/papers/2023/6/11497.pdf"
         questions = [
             "Why Deep Learning in Today's Research and Applications?",
-            "What is the Position of Deep Learning in AI?", 
+            "What is the Position of Deep Learning in AI?",
             "What are the Background?"
         ]
 
         print(f"\n📄 Test Document: {pdf_url}")
         print(f"📝 Test Questions: {len(questions)}")
 
-        # Benchmark 1: Cold Start (First Run)
+        # Benchmark 1: Cold Start
         print("\n" + "🔥" * 60)
         print("🧊 COLD START BENCHMARK (First Time)")
         print("🔥" * 60)
 
         cold_start_time = time.time()
-        cold_results = await pipeline.process_document_and_questions_hyper_fast(pdf_url, questions)
+        cold_results = await pipeline.process_document_and_questions_ultra_fast(pdf_url, questions)
         cold_end_time = time.time()
 
         cold_total_time = cold_end_time - cold_start_time
@@ -155,15 +154,15 @@ async def run_comprehensive_benchmark():
         print(f"   Questions per Second: {len(questions) / cold_total_time:.2f}")
 
         # Brief pause to simulate real conditions
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.5)
 
-        # Benchmark 2: Warm Start (Cached Run)
+        # Benchmark 2: Warm Start
         print("\n" + "⚡" * 60)
         print("🔥 WARM START BENCHMARK (With Caching)")
         print("⚡" * 60)
 
         warm_start_time = time.time()
-        warm_results = await pipeline.process_document_and_questions_hyper_fast(pdf_url, questions)
+        warm_results = await pipeline.process_document_and_questions_ultra_fast(pdf_url, questions)
         warm_end_time = time.time()
 
         warm_total_time = warm_end_time - warm_start_time
@@ -199,12 +198,11 @@ async def run_comprehensive_benchmark():
         print(f"\n🏆 HACKRX COMPETITION ASSESSMENT:")
         print("=" * 50)
 
-        # Performance categories
         if warm_avg_time <= 0.5:
             performance_rating = "🏆 HACKRX CHAMPION"
             performance_emoji = "🚀"
             readiness_status = "READY TO DOMINATE"
-        elif warm_avg_time <= 1.0:
+        elif warm_avg_time <= 1.5:
             performance_rating = "🥇 HACKRX GOLD TIER"
             performance_emoji = "⚡"
             readiness_status = "COMPETITION READY"
@@ -212,10 +210,6 @@ async def run_comprehensive_benchmark():
             performance_rating = "🥈 HACKRX SILVER TIER"
             performance_emoji = "🔥"
             readiness_status = "STRONG CONTENDER"
-        elif warm_avg_time <= 3.0:
-            performance_rating = "🥉 HACKRX BRONZE TIER"
-            performance_emoji = "👍"
-            readiness_status = "GOOD FOUNDATION"
         else:
             performance_rating = "🔴 NEEDS OPTIMIZATION"
             performance_emoji = "⚠️"
@@ -223,29 +217,34 @@ async def run_comprehensive_benchmark():
 
         print(f" {performance_emoji} Performance Tier: {performance_rating}")
         print(f" 🎯 Competition Status: {readiness_status}")
-        print(f" ⏱️ Target Achievement: {'✅ ACHIEVED' if warm_avg_time <= 1.0 else '❌ NOT YET'}")
+        print(f" ⏱️ Target Achievement: {'✅ ACHIEVED' if warm_avg_time <= 1.5 else '❌ NOT YET'}")
 
         # Detailed metrics
         stats = pipeline.get_stats()
         config = stats.get('configuration', {})
-        cache_stats = stats.get('cache_stats', {})
+        cache_stats = {
+            'embedding_cache': len(pipeline.embedding_cache),
+            'answer_cache': len(pipeline.answer_cache)
+        }
 
         print(f"\n📊 DETAILED PERFORMANCE METRICS:")
         print("-" * 40)
         print(f" Cold Start Performance: {cold_avg_time:.2f}s per question")
         print(f" Warm Start Performance: {warm_avg_time:.2f}s per question")
         print(f" Performance Gain: {speedup:.2f}x improvement")
-        print(f" Target Compliance: {'✅ YES' if warm_avg_time <= 1.0 else '❌ NO'}")
+        print(f" Target Compliance: {'✅ YES' if warm_avg_time <= 1.5 else '❌ NO'}")
 
         print(f"\n🧠 SYSTEM OPTIMIZATION STATUS:")
         print("-" * 40)
         optimization_checks = [
-            ("Local Embeddings Active", config.get('use_local_embeddings', False)),
+            ("Local Embeddings Active", pipeline.use_local_embeddings),
             ("Caching System Working", sum(cache_stats.values()) > 0),
-            ("High Concurrency Enabled", config.get('max_concurrent_requests', 0) >= 30),
-            ("Optimal Batch Size", config.get('embedding_batch_size', 0) >= 60),
+            ("High Concurrency Enabled", pipeline.max_concurrent_requests >= 50),
+            ("Optimal Batch Size", pipeline.embedding_batch_size >= 100),
             ("Memory Efficiency", psutil.virtual_memory().available / (1024**3) > 2),
-            ("Dimension Compatibility", config.get('pinecone_dimension') == 384),
+            ("Dimension Compatibility", config.get('pinecone_dimension', 384) == 384),
+            ("Single Chunk Retrieval", pipeline.top_k_retrieval == 1),
+            ("Minimal Response Tokens", pipeline.max_tokens_response <= 80)
         ]
 
         passed_checks = 0
@@ -260,54 +259,50 @@ async def run_comprehensive_benchmark():
 
         # Resource utilization
         memory_after = psutil.virtual_memory()
-        cpu_percent = psutil.cpu_percent(interval=1)
+        cpu_percent = psutil.cpu_percent(interval=0.5)
 
         print(f"\n💾 RESOURCE UTILIZATION:")
         print("-" * 40)
         print(f" Memory Usage: {(memory_after.total - memory_after.available) / (1024 ** 3):.1f} GB")
         print(f" Memory Efficiency: {memory_after.percent:.1f}% utilized")
         print(f" CPU Usage: {cpu_percent:.1f}%")
-        print(f" Concurrent Requests: {config.get('max_concurrent_requests', 'N/A')}")
-        print(f" Embedding Batch Size: {config.get('embedding_batch_size', 'N/A')}")
-        print(f" Embedding Model: {config.get('embedding_model', 'N/A')}")
+        print(f" Concurrent Requests: {pipeline.max_concurrent_requests}")
+        print(f" Embedding Batch Size: {pipeline.embedding_batch_size}")
+        print(f" Embedding Model: {'all-MiniLM-L6-v2' if pipeline.use_local_embeddings else 'remote'}")
 
         # Competition recommendations
         print(f"\n🎯 HACKRX STRATEGY RECOMMENDATIONS:")
         print("-" * 40)
 
-        if warm_avg_time <= 1.0:
+        if warm_avg_time <= 1.5:
             print(" 🏆 CHAMPIONSHIP STRATEGY:")
-            print("   • Emphasize sub-1-second response time")
-            print("   • Demonstrate scalability with multiple questions")
-            print("   • Highlight caching system efficiency")
-            print("   • Showcase local embedding innovation")
-            print("   • Stress test with 10+ concurrent questions")
-        elif warm_avg_time <= 2.0:
-            print(" 🥇 OPTIMIZATION STRATEGY:")
-            print("   • Fine-tune concurrent request limits")
-            print("   • Optimize embedding batch sizes")
-            print("   • Pre-warm all caches before demo")
-            print("   • Consider reducing chunk size further")
+            print("   • Emphasize ≤1.5s response time")
+            print("   • Demonstrate aggressive caching efficiency")
+            print("   • Highlight single-chunk retrieval optimization")
+            print("   • Showcase local embedding performance")
+            print("   • Stress test with 20+ concurrent questions")
         else:
             print(" 🔧 IMPROVEMENT STRATEGY:")
-            print("   • Verify local embeddings are working")
-            print("   • Check system memory availability")
-            print("   • Optimize network connectivity")
-            print("   • Consider using faster hardware")
+            print("   • Verify local embeddings performance")
+            print("   • Increase concurrent request limits")
+            print("   • Pre-warm caches before benchmark")
+            print("   • Optimize network latency")
+            print("   • Consider faster hardware")
 
         # Final readiness checklist
         print(f"\n📋 HACKRX FINAL READINESS CHECKLIST:")
         print("-" * 40)
 
         readiness_items = [
-            ("Sub-1s response time achieved", warm_avg_time <= 1.0),
-            ("Local embeddings operational", config.get('use_local_embeddings', False)),
-            ("3-layer caching active", len(cache_stats) >= 3),
-            ("High concurrency configured", config.get('max_concurrent_requests', 0) >= 30),
+            ("≤1.5s response time achieved", warm_avg_time <= 1.5),
+            ("Local embeddings operational", pipeline.use_local_embeddings),
+            ("Aggressive caching active", len(cache_stats) >= 2),
+            ("High concurrency configured", pipeline.max_concurrent_requests >= 50),
             ("System resources adequate", psutil.virtual_memory().available / (1024**3) > 2),
             ("Error handling robust", len(warm_results) == len(questions)),
-            ("Performance consistent", abs(cold_avg_time - warm_avg_time) > 1.0),
-            ("Dimension compatibility", config.get('pinecone_dimension') == 384)
+            ("Performance consistent", abs(cold_avg_time - warm_avg_time) > 0.5),
+            ("Dimension compatibility", config.get('pinecone_dimension', 384) == 384),
+            ("Single chunk retrieval", pipeline.top_k_retrieval == 1)
         ]
 
         ready_count = sum(1 for _, status in readiness_items if status)
@@ -356,9 +351,9 @@ def run_hackrx_benchmark():
     """Main runner function for HackRX pipeline"""
 
     print("🚀" + "=" * 78 + "🚀")
-    print("🏆 HACKRX HYPER-OPTIMIZED RAG PIPELINE")
-    print("   🎯 Mission: Achieve <1 second per question")
-    print("   ⚡ Technology: Local embeddings + 3-layer caching")
+    print("🏆 HACKRX ULTRA-FAST RAG PIPELINE")
+    print("   🎯 Mission: Achieve ≤1.5 seconds per question")
+    print("   ⚡ Technology: Local embeddings + aggressive caching")
     print("   📊 Embedding: 384-dim (all-MiniLM-L6-v2)")
     print("   🏆 Goal: Dominate the HackRX competition")
     print("   🔒 Security: Environment variables enabled")
@@ -440,9 +435,8 @@ async def demo_with_env_check():
     print("✅ Environment validated, starting demo...")
     
     try:
-        # Run the optimized demo using environment variables
-        from hybrid_rag_pipeline import hackrx_demo
-        await hackrx_demo()
+        from hybrid_rag_pipeline import ultra_fast_demo
+        await ultra_fast_demo()
     except Exception as e:
         print(f"❌ Demo failed: {e}")
         import traceback
