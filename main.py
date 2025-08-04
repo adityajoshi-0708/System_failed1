@@ -13,11 +13,11 @@ import hashlib
 # Load environment variables
 load_dotenv()
 
-# Import the new pipeline
+# Import the new advanced pipeline
 try:
-    from hybrid_rag_pipeline import UltraFastRAGPipeline
+    from hybrid_rag_pipeline import HybridAdvancedRAGPipeline
 except ImportError:
-    raise ImportError("ultra_fast_rag_pipeline.py not found. Please ensure it's in the same directory.")
+    raise ImportError("hybrid_rag_pipeline.py not found. Please ensure it's in the same directory.")
 
 # Pydantic models for request/response
 class HackRXRequest(BaseModel):
@@ -32,9 +32,9 @@ pipeline = None
 
 # FastAPI app initialization
 app = FastAPI(
-    title="HackRX Ultra-Fast RAG API",
-    description="Ultra-Fast RAG Pipeline for HackRX Competition (Target: 1.5s per question)",
-    version="1.0.0",
+    title="HackRX Advanced Hybrid RAG API",
+    description="Advanced Hybrid RAG Pipeline for HackRX Competition (Target: 90%+ accuracy, <2s latency)",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -59,12 +59,12 @@ def verify_bearer_token(authorization: str = Header(None)):
     return token
 
 async def get_pipeline():
-    """Get or initialize the ultra-fast pipeline"""
+    """Get or initialize the advanced hybrid pipeline"""
     global pipeline
     if pipeline is None:
         try:
-            # Initialize pipeline with optimized parameters
-            pipeline = UltraFastRAGPipeline(
+            # Initialize pipeline with advanced features and environment variables
+            pipeline = HybridAdvancedRAGPipeline(
                 github_token=os.getenv("GITHUB_TOKEN"),
                 pinecone_api_key=os.getenv("PINECONE_API_KEY"),
                 chunks_index_host=os.getenv("CHUNKS_INDEX_HOST"),
@@ -72,14 +72,19 @@ async def get_pipeline():
                 max_concurrent_requests=int(os.getenv("MAX_CONCURRENT_REQUESTS", "100")),
                 embedding_batch_size=int(os.getenv("EMBEDDING_BATCH_SIZE", "200")),
                 use_local_embeddings=os.getenv("USE_LOCAL_EMBEDDINGS", "true").lower() == "true",
-                chunk_size=int(os.getenv("CHUNK_SIZE", "600")),
-                chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "30")),
-                top_k_retrieval=int(os.getenv("TOP_K_RETRIEVAL", "1")),  # Only 1 chunk for speed
-                max_tokens_response=int(os.getenv("MAX_TOKENS_RESPONSE", "80")),  # Minimal response
-                embedding_cache_size=int(os.getenv("EMBEDDING_CACHE_SIZE", "10000")),
-                answer_cache_size=int(os.getenv("ANSWER_CACHE_SIZE", "5000"))
+                chunk_size=int(os.getenv("CHUNK_SIZE", "800")),
+                chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "100")),
+                top_k_retrieval=int(os.getenv("TOP_K_RETRIEVAL", "10")),
+                max_tokens_response=int(os.getenv("MAX_TOKEN_RESPONSE", "150")),
+                embedding_cache_size=int(os.getenv("EMBEDDING_CACHE_SIZE", "15000")),
+                answer_cache_size=int(os.getenv("ANSWER_CACHE_SIZE", "8000")),
+                reranker_top_k=int(os.getenv("TOP_N_RERANK", "3")),
+                use_hybrid_search=True,  # Enable hybrid search
+                use_reranking=True,      # Enable reranking
+                use_context_compression=True,  # Enable context compression
+                compression_ratio=float(os.getenv("HYBRID_ALPHA", "0.7"))  # Context compression ratio
             )
-            print("✅ Ultra-Fast Pipeline initialized with optimized parameters!")
+            print("✅ Advanced Hybrid RAG Pipeline initialized with all features!")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Pipeline initialization failed: {str(e)}")
     
@@ -87,8 +92,8 @@ async def get_pipeline():
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize pipeline on startup with optimizations"""
-    print("🚀 Starting HackRX Ultra-Fast RAG API...")
+    """Initialize pipeline on startup with advanced optimizations"""
+    print("🚀 Starting HackRX Advanced Hybrid RAG API...")
     
     # Check required environment variables
     required_vars = [
@@ -110,21 +115,23 @@ async def startup_event():
     
     # Initialize pipeline
     await get_pipeline()
-    print("✅ HackRX Ultra-Fast RAG API ready! Target: 1.5s per question")
+    print("✅ HackRX Advanced Hybrid RAG API ready!")
+    print("🎯 Features: Hybrid Search + Reranking + Context Compression")
+    print("📊 Target: 90%+ accuracy, <2s latency")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown with cache saving"""
-    print("🛑 Shutting down HackRX Ultra-Fast RAG API...")
+    print("🛑 Shutting down HackRX Advanced Hybrid RAG API...")
     global pipeline
     if pipeline:
         try:
-            pipeline._save_critical_caches()
-            print("💾 Critical caches saved successfully")
+            pipeline.save_caches()
+            print("💾 Advanced caches saved successfully")
         except Exception as e:
-            print(f"⚠️ Cache save warning: {e}")
+            print(f"⚠ Cache save warning: {e}")
     
-    print("✅ HackRX Ultra-Fast RAG API shutdown complete")
+    print("✅ HackRX Advanced Hybrid RAG API shutdown complete")
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -133,24 +140,51 @@ async def root():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>HackRX Ultra-Fast RAG API</title>
+        <title>HackRX Advanced Hybrid RAG API</title>
         <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
-            .header { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-            .endpoint { background: #ecf0f1; padding: 15px; margin: 10px 0; border-radius: 5px; }
-            .method { background: #e74c3c; color: white; padding: 3px 8px; border-radius: 3px; font-size: 12px; }
-            .url { font-family: monospace; background: #34495e; color: white; padding: 5px; border-radius: 3px; }
-            .example { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; font-family: monospace; }
-            .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
-            .success { background: #d5edda; color: #155724; border: 1px solid #c3e6cb; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+            .container { max-width: 900px; margin: 0 auto; background: rgba(255,255,255,0.95); padding: 40px; border-radius: 15px; color: #333; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+            .header { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 15px; text-align: center; }
+            .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 20px 0; }
+            .feature-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center; }
+            .endpoint { background: #ecf0f1; padding: 20px; margin: 15px 0; border-radius: 10px; border-left: 5px solid #3498db; }
+            .method { background: #e74c3c; color: white; padding: 5px 12px; border-radius: 5px; font-size: 12px; font-weight: bold; }
+            .url { font-family: 'Consolas', monospace; background: #34495e; color: #ecf0f1; padding: 8px 12px; border-radius: 5px; margin: 10px 0; }
+            .example { background: #2c3e50; color: #ecf0f1; padding: 20px; border-radius: 8px; font-family: 'Consolas', monospace; overflow-x: auto; }
+            .status { padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center; font-weight: bold; }
+            .success { background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%); color: #155724; }
+            .highlight { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center; }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1 class="header">🏆 HackRX Ultra-Fast RAG API</h1>
+            <h1 class="header">🏆 HackRX Advanced Hybrid RAG API v2.0</h1>
             <div class="status success">
-                ✅ API is running and optimized for HackRX competition! (Target: 1.5s per question)
+                ✅ Advanced Hybrid RAG Pipeline is operational! 🚀
+            </div>
+            
+            <div class="highlight">
+                <h2>🎯 Competition-Ready Features</h2>
+                <p><strong>90%+ Accuracy Target</strong> • <strong>&lt;2s Latency</strong> • <strong>Token Optimized</strong></p>
+            </div>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>🔍 Hybrid Search</h3>
+                    <p>Semantic + Keyword search for maximum accuracy</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🎯 Cross-Encoder Reranking</h3>
+                    <p>AI-powered result reranking for precision</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🗜 Context Compression</h3>
+                    <p>Intelligent filtering for token efficiency</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🧠 BAAI Embeddings</h3>
+                    <p>1024-dim high-quality embeddings</p>
+                </div>
             </div>
             
             <h2>📋 API Endpoints</h2>
@@ -158,9 +192,9 @@ async def root():
             <div class="endpoint">
                 <h3><span class="method">POST</span> Main Processing Endpoint</h3>
                 <div class="url">/hackrx/run</div>
-                <p><strong>Description:</strong> Process PDF document and answer questions ultra-fast</p>
+                <p><strong>Description:</strong> Process PDF document and answer questions with advanced hybrid RAG</p>
                 <p><strong>Authentication:</strong> Bearer token required</p>
-                <p><strong>Content-Type:</strong> application/json</p>
+                <p><strong>Features:</strong> Hybrid search, reranking, context compression, explainable results</p>
             </div>
             
             <h3>📝 Request Format:</h3>
@@ -169,7 +203,8 @@ async def root():
     "documents": "https://example.com/document.pdf",
     "questions": [
         "What is the main topic?",
-        "What are the key findings?"
+        "What are the key findings?",
+        "What are the conclusions?"
     ]
 }
             </div>
@@ -178,8 +213,9 @@ async def root():
             <div class="example">
 {
     "answers": [
-        "The main topic is...",
-        "The key findings are..."
+        "The main topic is advanced machine learning techniques...",
+        "The key findings include improved accuracy of 95%...",
+        "The conclusions demonstrate significant improvements..."
     ]
 }
             </div>
@@ -187,6 +223,7 @@ async def root():
             <h3>🔧 Authentication:</h3>
             <div class="example">
 Authorization: Bearer &lt;your_token&gt;
+Content-Type: application/json
             </div>
             
             <div class="endpoint">
@@ -198,21 +235,33 @@ Authorization: Bearer &lt;your_token&gt;
             <div class="endpoint">
                 <h3><span class="method">GET</span> Health Check</h3>
                 <div class="url">/health</div>
-                <p>Check API health and system status</p>
+                <p>Check API health and advanced pipeline status</p>
             </div>
             
-            <h2>⚡ Optimization Features</h2>
-            <ul>
-                <li>🧠 Local embeddings (all-MiniLM-L6-v2, 384-dimension)</li>
-                <li>💾 Aggressive LRU caching system</li>
-                <li>🚀 Maximum concurrency (100 requests)</li>
-                <li>⚡ Single chunk retrieval (top_k=1)</li>
-                <li>📝 Minimal response tokens (80 max)</li>
-                <li>🔒 Secure authentication</li>
-                <li>🎯 1.5s per question target</li>
+            <div class="endpoint">
+                <h3><span class="method">GET</span> Advanced Statistics</h3>
+                <div class="url">/stats</div>
+                <p>Detailed pipeline performance metrics and configuration</p>
+            </div>
+            
+            <h2>⚡ Advanced Optimization Features</h2>
+            <ul style="font-size: 16px; line-height: 1.8;">
+                <li>🧠 <strong>BAAI/bge-large-en-v1.5</strong> embeddings (1024-dimension)</li>
+                <li>🎯 <strong>Cross-encoder reranking</strong> for maximum accuracy</li>
+                <li>🔍 <strong>Hybrid search</strong> (semantic + keyword TF-IDF)</li>
+                <li>🗜 <strong>LLM-based context compression</strong> for token efficiency</li>
+                <li>💾 <strong>Multi-level caching</strong> (embeddings, answers, keywords)</li>
+                <li>🚀 <strong>High concurrency</strong> (100+ concurrent requests)</li>
+                <li>📊 <strong>Explainable results</strong> with detailed metrics</li>
+                <li>🔒 <strong>Secure authentication</strong> with Bearer tokens</li>
+                <li>⚡ <strong>Performance optimized</strong> for competition standards</li>
             </ul>
             
-            <p><strong>🎯 HackRX Ready:</strong> Ultra-optimized for competition performance!</p>
+            <div class="highlight">
+                <h2>🏆 HackRX Competition Ready</h2>
+                <p><strong>Advanced Hybrid RAG Pipeline v2.0</strong><br>
+                Engineered for maximum accuracy and optimal performance!</p>
+            </div>
         </div>
     </body>
     </html>
@@ -221,26 +270,25 @@ Authorization: Bearer &lt;your_token&gt;
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint with optimized pipeline stats"""
+    """Health check endpoint with advanced pipeline stats"""
     try:
         pipeline_instance = await get_pipeline()
-        stats = pipeline_instance.get_stats()
+        stats = pipeline_instance.get_advanced_stats()
         
         return JSONResponse({
             "status": "healthy",
-            "message": "HackRX Ultra-Fast RAG API is operational",
+            "message": "HackRX Advanced Hybrid RAG API is operational",
             "pipeline_ready": True,
-            "cache_stats": {
-                "embedding_cache_size": len(pipeline_instance.embedding_cache),
-                "answer_cache_size": len(pipeline_instance.answer_cache)
+            "version": "2.0.0",
+            "features": {
+                "hybrid_search": "✅ Active",
+                "reranking": "✅ Active", 
+                "context_compression": "✅ Active",
+                "local_embeddings": "✅ Active"
             },
-            "configuration": {
-                "use_local_embeddings": pipeline_instance.use_local_embeddings,
-                "embedding_model": "all-MiniLM-L6-v2" if pipeline_instance.use_local_embeddings else "remote",
-                "max_concurrent_requests": pipeline_instance.max_concurrent_requests,
-                "top_k_retrieval": pipeline_instance.top_k_retrieval,
-                "max_tokens_response": pipeline_instance.max_tokens_response
-            }
+            "cache_stats": stats.get("cache_stats", {}),
+            "performance_stats": stats.get("performance_stats", {}),
+            "configuration": stats.get("configuration", {})
         })
     except Exception as e:
         return JSONResponse(
@@ -256,15 +304,23 @@ async def health_check():
 async def hackrx_run_info():
     """HackRX endpoint - GET request shows API status and usage info"""
     return JSONResponse({
-        "status": "✅ HackRX API is WORKING!",
-        "message": "API endpoint is operational and ready for hackathon submissions",
+        "status": "✅ HackRX Advanced Hybrid RAG API is WORKING!",
+        "message": "Advanced pipeline with hybrid search, reranking, and context compression",
+        "version": "2.0.0",
         "endpoint": "/hackrx/run",
         "method": "POST (for processing)",
         "current_method": "GET (for status check)",
+        "features": {
+            "hybrid_search": "Semantic + Keyword search",
+            "reranking": "Cross-encoder optimization",
+            "context_compression": "LLM-based intelligent filtering",
+            "embeddings": "BAAI/bge-large-en-v1.5 (1024-dim)",
+            "performance_target": "90%+ accuracy, <2s latency"
+        },
         "team_info": {
-            "success": "🎉 Your API endpoint is correctly configured!",
+            "success": "🎉 Your Advanced Hybrid RAG API is ready for competition!",
             "next_step": "Use POST method with JSON payload to process documents",
-            "performance_target": "1.5 seconds per question",
+            "performance_target": "90%+ accuracy with <2 second latency",
             "authentication": "Bearer token required"
         },
         "usage": {
@@ -277,10 +333,15 @@ async def hackrx_run_info():
             },
             "body_example": {
                 "documents": "https://example.com/document.pdf",
-                "questions": ["Question 1?", "Question 2?"]
+                "questions": ["Question 1?", "Question 2?", "Question 3?"]
             }
         },
-        "test_interface": "Visit / (root) for interactive test form",
+        "advanced_features": {
+            "explainable_results": "Detailed reasoning for each answer",
+            "metrics_tracking": "Performance metrics for each query",
+            "token_optimization": "Context compression for efficiency",
+            "accuracy_optimization": "Hybrid search + reranking pipeline"
+        },
         "documentation": "Visit /docs for full API documentation"
     })
 
@@ -289,7 +350,7 @@ async def hackrx_run_api(
     request: HackRXRequest,
     token: str = Depends(verify_bearer_token)
 ):
-    """Main HackRX endpoint - POST request processes PDF and returns answers"""
+    """Main HackRX endpoint - POST request processes PDF with advanced hybrid RAG"""
     try:
         pipeline_instance = await get_pipeline()
         
@@ -299,23 +360,42 @@ async def hackrx_run_api(
         if not request.questions or len(request.questions) == 0:
             raise HTTPException(status_code=400, detail="At least one question is required")
         
-        print(f"🚀 Processing {len(request.questions)} questions ultra-fast...")
+        print(f"🚀 Processing {len(request.questions)} questions with Advanced Hybrid RAG...")
+        print("🔍 Features: Hybrid Search + Reranking + Context Compression")
         start_time = time.time()
         
-        results = await pipeline_instance.process_document_and_questions_ultra_fast(
+        # Use the advanced processing method
+        results = await pipeline_instance.process_document_and_questions_advanced(
             pdf_url=request.documents,
             questions=request.questions
         )
         
-        answers = [results.get(question, "Unable to process question") for question in request.questions]
+        # Extract answers from results (excluding _summary)
+        answers = []
+        for question in request.questions:
+            if question in results:
+                answer_data = results[question]
+                if isinstance(answer_data, dict):
+                    answers.append(answer_data.get("answer", "Unable to process question"))
+                else:
+                    answers.append(str(answer_data))
+            else:
+                answers.append("Unable to process question")
         
         end_time = time.time()
         total_time = end_time - start_time
         avg_time = total_time / len(request.questions) if request.questions else 0
         
+        # Get summary metrics if available
+        summary = results.get("_summary", {})
+        avg_accuracy = summary.get("average_accuracy", 0)
+        total_tokens = summary.get("total_tokens_used", 0)
+        
         print(f"✅ Successfully processed {len(answers)} answers")
-        print(f"⚡ Total Time: {total_time:.2f}s, Avg: {avg_time:.2f}s")
-        print(f"🎯 Target Achievement: {'✅' if avg_time <= 1.5 else '❌'}")
+        print(f"⚡ Total Time: {total_time:.2f}s, Avg: {avg_time:.2f}s per question")
+        print(f"🎯 Average Accuracy: {avg_accuracy:.1f}%")
+        print(f"💰 Total Tokens: {total_tokens}")
+        print(f"🏆 Performance Target: {'✅ ACHIEVED' if avg_time <= 2.0 and avg_accuracy >= 90 else '🔧 NEEDS OPTIMIZATION'}")
         
         return HackRXResponse(answers=answers)
         
@@ -323,6 +403,8 @@ async def hackrx_run_api(
         raise
     except Exception as e:
         print(f"❌ Error in hackrx_run: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500, 
             detail=f"Internal server error: {str(e)}"
@@ -330,22 +412,28 @@ async def hackrx_run_api(
 
 @app.get("/stats")
 async def get_pipeline_stats(token: str = Depends(verify_bearer_token)):
-    """Get detailed pipeline statistics"""
+    """Get detailed advanced pipeline statistics"""
     try:
         pipeline_instance = await get_pipeline()
-        stats = pipeline_instance.get_stats()
+        stats = pipeline_instance.get_advanced_stats()
+        
         return JSONResponse({
-            "cache_stats": {
-                "embedding_cache_size": len(pipeline_instance.embedding_cache),
-                "answer_cache_size": len(pipeline_instance.answer_cache)
-            },
-            "configuration": {
-                "use_local_embeddings": pipeline_instance.use_local_embeddings,
+            "pipeline_version": "Advanced Hybrid RAG v2.0",
+            "cache_stats": stats.get("cache_stats", {}),
+            "performance_stats": stats.get("performance_stats", {}),
+            "configuration": stats.get("configuration", {}),
+            "features": stats.get("features", {}),
+            "system_info": {
+                "embedding_model": "BAAI/bge-large-en-v1.5",
+                "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+                "embedding_dimensions": 1024,
                 "max_concurrent_requests": pipeline_instance.max_concurrent_requests,
-                "top_k_retrieval": pipeline_instance.top_k_retrieval,
-                "max_tokens_response": pipeline_instance.max_tokens_response,
                 "chunk_size": pipeline_instance.chunk_size,
-                "chunk_overlap": pipeline_instance.chunk_overlap
+                "top_k_retrieval": pipeline_instance.top_k_retrieval,
+                "reranker_top_k": pipeline_instance.reranker_top_k,
+                "use_hybrid_search": pipeline_instance.use_hybrid_search,
+                "use_reranking": pipeline_instance.use_reranking,
+                "use_context_compression": pipeline_instance.use_context_compression
             }
         })
     except Exception as e:
@@ -357,7 +445,8 @@ async def not_found_handler(request, exc):
         status_code=404,
         content={
             "error": "Endpoint not found",
-            "message": "Available endpoints: / (GET), /hackrx/run (POST), /health (GET), /docs (GET), /stats (GET)"
+            "message": "Available endpoints: / (GET), /hackrx/run (POST), /health (GET), /docs (GET), /stats (GET)",
+            "api_version": "Advanced Hybrid RAG v2.0"
         }
     )
 
@@ -367,14 +456,17 @@ async def internal_error_handler(request, exc):
         status_code=500,
         content={
             "error": "Internal server error",
-            "message": "Please check server logs for details"
+            "message": "Please check server logs for details",
+            "api_version": "Advanced Hybrid RAG v2.0"
         }
     )
 
 if __name__ == "__main__":
-    print("🚀 Starting HackRX Ultra-Fast RAG API Server...")
+    print("🚀 Starting HackRX Advanced Hybrid RAG API Server...")
     print("🔒 Environment variables loaded from .env file")
-    print("📊 API Documentation available at: http://localhost:8000/docs")
+    print("🎯 Features: Hybrid Search + Reranking + Context Compression")
+    print("📊 Target: 90%+ accuracy, <2s latency")
+    print("📖 API Documentation: http://localhost:8000/docs")
     print("🏆 HackRX endpoint: http://localhost:8000/hackrx/run")
     
     uvicorn.run(
@@ -382,8 +474,8 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=False,
-        workers=2,  # Increased for production
+        workers=2,
         log_level="info",
         access_log=True,
-        timeout_keep_alive=5  # Reduced for faster connections
+        timeout_keep_alive=10
     )

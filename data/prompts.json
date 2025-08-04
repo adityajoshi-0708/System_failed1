@@ -1,0 +1,5 @@
+{
+  "simple_prompt_template": "Context: {context}\nQuestion: {query}\nInstructions: Provide a concise, accurate answer based solely on the given context. If the context is insufficient, say 'Insufficient context to answer.' Do not generate information not present in the context.\nAnswer:",
+  "extractor_prompt_template": "Context: {context}\nQuery: {query}\nInstructions: Extract the most relevant sentences or phrases from the context that directly relate to the query. Return only the extracted content, up to 200 tokens. If no relevant content is found, return 'No relevant content.'\nExtracted Content:",
+  "filter_prompt_template": "Context: {context}\nQuery: {query}\nInstructions: Determine if the context is relevant to the query. Return 'Relevant' if the context contains information pertinent to the query, otherwise return 'Irrelevant'.\nRelevance:"
+}
