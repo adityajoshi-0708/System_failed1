@@ -27,15 +27,15 @@ class UltraFastRAGPipeline:
             chunks_index_host: str = None,
             cache_index_host: str = None,
             data_path: str = "./data",
-            max_concurrent_requests: int = 100,  # Increased
-            embedding_batch_size: int = 200,     # Increased
+            max_concurrent_requests: int = 100,  # Will be adjusted for LLM calls
+            embedding_batch_size: int = 200,     
             use_local_embeddings: bool = True,
-            chunk_size: int = 600,               # Reduced for faster processing
-            chunk_overlap: int = 30,             # Reduced
-            top_k_retrieval: int = 1,            # CRITICAL: Only 1 chunk for speed
-            max_tokens_response: int = 80,        # Reduced for 2-line answers
-            embedding_cache_size : int = 10000,   # LRU cache size
-            answer_cache_size: int = 5000        # Answer cache size
+            chunk_size: int = 600,               
+            chunk_overlap: int = 30,             
+            top_k_retrieval: int = 1,            
+            max_tokens_response: int = 80,        
+            embedding_cache_size : int = 10000,   
+            answer_cache_size: int = 5000        
     ):
         print("🚀 Initializing ULTRA-FAST RAG Pipeline (Target: 1.5s per question)")
 
@@ -59,7 +59,7 @@ class UltraFastRAGPipeline:
         self.use_local_embeddings = use_local_embeddings
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
-        self.top_k_retrieval = top_k_retrieval  # Only 1 chunk!
+        self.top_k_retrieval = top_k_retrieval  
         self.max_tokens_response = max_tokens_response
 
         # OPTIMIZATION 2: Enhanced caching system
@@ -86,17 +86,24 @@ class UltraFastRAGPipeline:
         print("🔗 Setting up optimized clients...")
         self._setup_clients()
 
-        # OPTIMIZATION 4: Maximum concurrency
+        # RATE LIMIT FIX: Different semaphores for different operations
         self.request_semaphore = asyncio.Semaphore(max_concurrent_requests)
-        self.thread_pool = ThreadPoolExecutor(max_workers=32)  # Increased
+        self.llm_semaphore = asyncio.Semaphore(3)  # CRITICAL: Only 3 concurrent LLM calls
+        self.thread_pool = ThreadPoolExecutor(max_workers=32)  
 
         # OPTIMIZATION 5: Ultra-minimal prompt for speed
         self.ultra_minimal_prompt = "Context: {context}\nQ: {query}\nA (2 lines max):"
+
+        # RATE LIMIT FIX: Add retry configuration
+        self.max_retries = 3
+        self.base_delay = 0.5
+        self.backoff_factor = 2
 
         self._setup_directories()
         self._preload_critical_caches()
 
         print("✅ ULTRA-FAST Pipeline ready! Target: 1.5s per question")
+        print(f"🔒 Rate limit protection: {3} concurrent LLM calls max")
 
     def _setup_clients(self):
         try:
@@ -115,8 +122,8 @@ class UltraFastRAGPipeline:
             self.async_openai_client = AsyncOpenAI(
                 base_url=self.github_endpoint, 
                 api_key=self.github_token,
-                timeout=10.0,  # Reduced timeout
-                max_retries=1   # Reduced retries
+                timeout=15.0,  # Increased timeout for stability
+                max_retries=1   
             )
             print("✅ Optimized clients ready!")
         except Exception as e:
@@ -253,40 +260,59 @@ class UltraFastRAGPipeline:
             print(f"❌ Retrieval error: {e}")
             return []
 
+    # RATE LIMIT FIX: Add exponential backoff retry mechanism
+    async def _llm_call_with_retry(self, prompt: str, retry_count: int = 0) -> str:
+        """LLM call with exponential backoff retry for rate limits"""
+        try:
+            response = await self.async_openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0,
+                max_tokens=self.max_tokens_response,
+                stream=False,
+                timeout=15.0
+            )
+            return response.choices[0].message.content.strip()
+            
+        except Exception as e:
+            error_str = str(e).lower()
+            
+            # Handle rate limit errors with exponential backoff
+            if any(keyword in error_str for keyword in ['rate limit', '429', 'too many requests']):
+                if retry_count < self.max_retries:
+                    delay = self.base_delay * (self.backoff_factor ** retry_count)
+                    print(f"⏳ Rate limit hit, retrying in {delay:.1f}s (attempt {retry_count + 1})")
+                    await asyncio.sleep(delay)
+                    return await self._llm_call_with_retry(prompt, retry_count + 1)
+                else:
+                    print(f"❌ Max retries reached for rate limit")
+                    return "Rate limit exceeded - please try again later"
+            else:
+                print(f"❌ LLM error: {e}")
+                return "Error generating response"
+
     async def ultra_fast_llm_call(self, context: str, question: str) -> str:
-        """OPTIMIZATION 11: Ultra-fast LLM call with minimal tokens"""
+        """OPTIMIZATION 11: Ultra-fast LLM call with rate limit protection"""
         # Aggressive answer caching
         cache_key = hashlib.md5(f"{context[:100]}{question}".encode()).hexdigest()[:16]
         if cache_key in self.answer_cache:
             return self.answer_cache[cache_key]
 
-        try:
-            async with self.request_semaphore:
-                # OPTIMIZATION 12: Minimal context and ultra-short prompt
-                prompt = self.ultra_minimal_prompt.format(
-                    context=context[:400],  # Very limited context
-                    query=question
-                )
+        # RATE LIMIT FIX: Use LLM-specific semaphore
+        async with self.llm_semaphore:
+            # OPTIMIZATION 12: Minimal context and ultra-short prompt
+            prompt = self.ultra_minimal_prompt.format(
+                context=context[:400],  # Very limited context
+                query=question
+            )
 
-                response = await self.async_openai_client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0,
-                    max_tokens=self.max_tokens_response,  # Very limited tokens
-                    stream=False,
-                    timeout=8.0  # Reduced timeout
-                )
+            answer = await self._llm_call_with_retry(prompt)
 
-                answer = response.choices[0].message.content.strip()
-
-                # Cache with size management
-                self.answer_cache[cache_key] = answer
-                self._manage_cache_size(self.answer_cache, self.answer_cache_size)
-                
-                return answer
-        except Exception as e:
-            print(f"❌ LLM error: {e}")
-            return "Error generating response"
+            # Cache with size management
+            self.answer_cache[cache_key] = answer
+            self._manage_cache_size(self.answer_cache, self.answer_cache_size)
+            
+            return answer
 
     async def process_question_ultra_fast(self, question: str, namespace: str) -> str:
         """OPTIMIZATION 13: Ultra-fast question processing pipeline"""
@@ -295,7 +321,7 @@ class UltraFastRAGPipeline:
             chunks = await self.lightning_fast_retrieval(question, namespace)
             context = chunks[0] if chunks else "No context available."
 
-            # Single LLM call with minimal tokens
+            # Single LLM call with minimal tokens and rate limit protection
             return await self.ultra_fast_llm_call(context, question)
         except Exception as e:
             print(f"❌ Question processing error: {e}")
@@ -400,7 +426,7 @@ class UltraFastRAGPipeline:
             pdf_url: str,
             questions: List[str]
     ) -> Dict[str, str]:
-        """OPTIMIZATION 14: Complete ultra-fast processing pipeline"""
+        """OPTIMIZATION 14: Complete ultra-fast processing pipeline with rate limit protection"""
         start = time.time()
         namespace = re.sub(r'\W+', '', pdf_url).strip('').lower()
 
@@ -432,24 +458,33 @@ class UltraFastRAGPipeline:
 
             print(f"🧠 Processing {len(questions)} questions ultra-fast...")
 
-            # OPTIMIZATION 15: Maximum concurrency for questions
-            semaphore = asyncio.Semaphore(50)  # Very high concurrency
+            # RATE LIMIT FIX: Process questions in batches to respect rate limits
+            batch_size = 3  # Process 3 questions at a time to stay within rate limits
+            result_dict = {}
 
-            async def process_single_question(q):
-                async with semaphore:
+            for i in range(0, len(questions), batch_size):
+                batch_questions = questions[i:i + batch_size]
+                print(f"📝 Processing batch {i//batch_size + 1}/{(len(questions) + batch_size - 1)//batch_size}")
+                
+                # Process batch with limited concurrency
+                async def process_single_question(q):
                     return q, await self.process_question_ultra_fast(q, namespace)
 
-            # Process all questions in parallel
-            tasks = [process_single_question(q) for q in questions]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+                # Process batch in parallel but limited by semaphore
+                tasks = [process_single_question(q) for q in batch_questions]
+                batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            # Handle results
-            result_dict = {}
-            for result in results:
-                if isinstance(result, Exception):
-                    continue
-                q, a = result
-                result_dict[q] = a
+                # Handle batch results
+                for result in batch_results:
+                    if isinstance(result, Exception):
+                        print(f"❌ Question processing failed: {result}")
+                        continue
+                    q, a = result
+                    result_dict[q] = a
+
+                # Small delay between batches to be safe
+                if i + batch_size < len(questions):
+                    await asyncio.sleep(0.2)
 
             # Save critical caches only
             self._save_critical_caches()
@@ -464,7 +499,7 @@ class UltraFastRAGPipeline:
             if avg_time <= 1.5:
                 print("🏆 TARGET ACHIEVED: ≤ 1.5s per question!")
             else:
-                print(f"🔴 Target missed by {avg_time - 1.5:.2f}s")
+                print(f"🔴 Target missed by {avg_time - 1.5:.2f}s (due to rate limiting)")
 
             return result_dict
 
@@ -486,12 +521,21 @@ class UltraFastRAGPipeline:
         except Exception:
             pass  # Ignore save errors for speed
 
+    def get_stats(self):
+        """Get pipeline statistics"""
+        return {
+            "embedding_cache_size": len(self.embedding_cache),
+            "answer_cache_size": len(self.answer_cache),
+            "max_concurrent_llm_calls": 3,
+            "rate_limit_protection": True
+        }
+
 
 # Ultra-fast demo function
 async def ultra_fast_demo():
-    """Ultra-fast demo targeting 1.5s per question"""
+    """Ultra-fast demo targeting 1.5s per question with rate limit protection"""
     try:
-        # OPTIMIZATION 16: Aggressive initialization parameters
+        # OPTIMIZATION 16: Aggressive initialization parameters with rate limit protection
         pipeline = UltraFastRAGPipeline(
             max_concurrent_requests=100,
             embedding_batch_size=200,
@@ -504,7 +548,7 @@ async def ultra_fast_demo():
             answer_cache_size=5000
         )
 
-        print("✅ ULTRA-FAST Pipeline ready!")
+        print("✅ ULTRA-FAST Pipeline ready with rate limit protection!")
 
         pdf_url = "https://www.ijfmr.com/papers/2023/6/11497.pdf"
         questions = [
@@ -545,11 +589,11 @@ async def ultra_fast_demo():
         print(" ✅ Only 1 chunk retrieval (top_k=1)")
         print(" ✅ Minimal response tokens (80 max)")
         print(" ✅ Aggressive caching with LRU")
-        print(" ✅ Maximum concurrency (100 requests)")
+        print(" ✅ Rate limit protection (3 concurrent LLM calls)")
+        print(" ✅ Exponential backoff retry")
+        print(" ✅ Batch processing for questions")
         print(" ✅ Minimal context (400 chars)")
         print(" ✅ Pre-normalized embeddings")
-        print(" ✅ Batch processing optimized")
-        print(" ✅ Ultra-short prompts")
 
     except Exception as e:
         print(f"❌ Error: {e}")
@@ -562,6 +606,7 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     print("🏆 ULTRA-FAST RAG PIPELINE (Target: 1.5s per question)")
+    print("🔒 WITH RATE LIMIT PROTECTION")
     print("=" * 60)
     
     load_dotenv()
