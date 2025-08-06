@@ -300,7 +300,7 @@ async def health_check():
             }
         )
 
-@app.get("/hackrx/run")
+@app.get("/via/hackrx/run")
 async def hackrx_run_info():
     """HackRX endpoint - GET request shows API status and usage info"""
     return JSONResponse({
