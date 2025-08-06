@@ -351,7 +351,7 @@ async def hackrx_run_api(
         print(f"🎯 Average Accuracy: {avg_accuracy:.1f}%")
         print(f"💰 Total Tokens: {total_tokens}")
         print(f"🏆 Performance Target: {'✅ ACHIEVED' if avg_time <= 2.0 and avg_accuracy >= 90 else '🔧 NEEDS OPTIMIZATION'}")
-        
+        print("hello")
         return HackRXResponse(answers=answers)
         
     except HTTPException:
