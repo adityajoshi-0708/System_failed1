@@ -1,10 +1,10 @@
 {
-  "timestamp": 1754348554,
+  "timestamp": 1754470748,
   "summary": {
-    "total_processing_time": 115.41331696510315,
-    "average_time_per_question": 11.541331696510316,
+    "total_processing_time": 9.749959945678711,
+    "average_time_per_question": 0.9749959945678711,
     "total_tokens_used": 0,
-    "average_accuracy": 0.0,
+    "average_accuracy": 72.18588911088912,
     "questions_processed": 10,
     "optimization_features": {
       "enhanced_retrieval": true,

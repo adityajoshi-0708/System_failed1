@@ -1,10 +1,10 @@
 {
-  "timestamp": 1754348379,
+  "timestamp": 1754471247,
   "summary": {
-    "total_processing_time": 39.61810231208801,
-    "average_time_per_question": 3.9618102312088013,
-    "total_tokens_used": 0,
-    "average_accuracy": 0.0,
+    "total_processing_time": 34.96916675567627,
+    "average_time_per_question": 3.496916675567627,
+    "total_tokens_used": 6742,
+    "average_accuracy": 70.81958456560868,
     "questions_processed": 10,
     "optimization_features": {
       "enhanced_retrieval": true,
@@ -18,7 +18,7 @@
       "f1_optimization": "Detailed answers for completeness",
       "bert_optimization": "Semantic consistency maintained",
       "latency_optimization": "Concurrent processing & caching",
-      "token_efficiency": "Avg 0 tokens per question"
+      "token_efficiency": "Avg 674 tokens per question"
     }
   },
   "optimization_notes": {
