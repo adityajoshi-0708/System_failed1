@@ -300,51 +300,6 @@ async def health_check():
             }
         )
 
-@app.get("/via/hackrx/run")
-async def hackrx_run_info():
-    """HackRX endpoint - GET request shows API status and usage info"""
-    return JSONResponse({
-        "status": "✅ HackRX Advanced Hybrid RAG API is WORKING!",
-        "message": "Advanced pipeline with hybrid search, reranking, and context compression",
-        "version": "2.0.0",
-        "endpoint": "/hackrx/run",
-        "method": "POST (for processing)",
-        "current_method": "GET (for status check)",
-        "features": {
-            "hybrid_search": "Semantic + Keyword search",
-            "reranking": "Cross-encoder optimization",
-            "context_compression": "LLM-based intelligent filtering",
-            "embeddings": "BAAI/bge-large-en-v1.5 (1024-dim)",
-            "performance_target": "90%+ accuracy, <2s latency"
-        },
-        "team_info": {
-            "success": "🎉 Your Advanced Hybrid RAG API is ready for competition!",
-            "next_step": "Use POST method with JSON payload to process documents",
-            "performance_target": "90%+ accuracy with <2 second latency",
-            "authentication": "Bearer token required"
-        },
-        "usage": {
-            "url": "/hackrx/run",
-            "method": "POST",
-            "content_type": "application/json",
-            "headers": {
-                "Authorization": "Bearer <your_token>",
-                "Content-Type": "application/json"
-            },
-            "body_example": {
-                "documents": "https://example.com/document.pdf",
-                "questions": ["Question 1?", "Question 2?", "Question 3?"]
-            }
-        },
-        "advanced_features": {
-            "explainable_results": "Detailed reasoning for each answer",
-            "metrics_tracking": "Performance metrics for each query",
-            "token_optimization": "Context compression for efficiency",
-            "accuracy_optimization": "Hybrid search + reranking pipeline"
-        },
-        "documentation": "Visit /docs for full API documentation"
-    })
-
 @app.post("/hackrx/run", response_model=HackRXResponse)
 async def hackrx_run_api(
     request: HackRXRequest,
